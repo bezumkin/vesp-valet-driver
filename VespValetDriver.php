@@ -25,21 +25,27 @@ class VespValetDriver extends BasicValetDriver
      */
     public function isStaticFile($sitePath, $siteName, $uri)
     {
-        $ext = pathinfo($uri, PATHINFO_EXTENSION);
+        if (preg_match('#^/(api|__clockwork)/#', $uri) || preg_match('#^/(image|file|sound|avatar)/\d+#', $uri)) {
+            return false;
+        }
+
         if (substr($uri, -1) === '/') {
             $uri .= 'index.html';
-        } elseif (!$ext) {
+        } elseif (!pathinfo($uri, PATHINFO_EXTENSION)) {
             $uri .= '/index.html';
         }
 
-        if (file_exists($sitePath . '/frontend/dist' . $uri)) {
-            return $sitePath . '/frontend/dist' . $uri;
-        }
-        if (file_exists($sitePath . '/frontend/dist/site' . $uri)) {
-            return $sitePath . '/frontend/dist/site' . $uri;
-        }
-        if (!$ext && !preg_match('#^/(api|image|file|sound|avatar|__clockwork)/#', $uri)) {
-            return $sitePath . '/frontend/dist/site/200.html';
+        $files = [
+            $uri,
+            preg_match('#^/admin/#', $uri) ? '/admin/200.html' : '/site' . $uri,
+            '/site/200.html',
+            '/200.html',
+        ];
+        foreach ($files as $file) {
+            $file = $sitePath . '/frontend/dist' . $file;
+            if (file_exists($file)) {
+                return $file;
+            }
         }
 
         return false;
@@ -56,7 +62,12 @@ class VespValetDriver extends BasicValetDriver
     public function frontControllerPath($sitePath, $siteName, $uri)
     {
         if ($uri === '/') {
-            return $sitePath . '/frontend/dist/site/index.html';
+            foreach (['site/index.html', 'site/200.html', 'index.html', '200.html'] as $page) {
+                $page = $sitePath . '/frontend/dist/' . $page;
+                if (file_exists($page)) {
+                    return $page;
+                }
+            }
         }
 
         return file_exists($sitePath . '/www/api.php')
